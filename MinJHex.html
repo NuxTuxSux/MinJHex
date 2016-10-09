@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>MinJHex</title>
+
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="Description" content="">
+        <script src="snap.svg-min.js"></script>
+        <style>
+            html, body, #field {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+    <!--<p id="test"><p\>!-->
+    <svg id="field"></svg>
+
+    <script>
+        //////////////////////////////////////////////////////
+                            //NOTES
+        /*  // page size
+        var w = window,
+        d = document,
+        e = d.documentElement,
+        g = d.getElementsByTagName('body')[0],
+        x = w.innerWidth || e.clientWidth || g.clientWidth,
+        y = w.innerHeight|| e.clientHeight|| g.clientHeight;
+        alert(x + ' × ' + y);
+        */
+        //////////////////////////////////////////////////////
+        var x0 = 200, y0 = 100;
+        
+        var l = 55, m = 3;
+            
+        var base_clr = "#8999d6",
+            over_clr = "#93a5ef",
+            clicked_clr = "#6375bf",
+            //clicked_clr = "#040404",
+            bomb_clr = "#d6647b",
+            flag_clr = "#efc415",
+            anim_dur = 130;
+
+        //var mouseClickDelay = 1300;
+
+        var doubleClick = {};
+        doubleClick.mouseClickDelay = 190;
+        doubleClick.lastClickTime = +new Date();
+        doubleClick.waitingSndClick = false;
+        doubleClick.lastClick = null;
+
+        var fontSize = '20px',
+            fontColor = '#ffffff',
+            font = 'DejaVu Sans';
+
+        var BOMBS = 30;
+        /////////////////////////////////////////////////////////
+
+        var field = Snap('#field');
+        
+
+        function mouseOver () {
+            if (this.state == "virgin")
+                this.animate({fill: over_clr}, anim_dur, mina.easein);
+        }
+
+        function mouseOut () {
+            if (this.state == "virgin")
+                this.animate({fill: base_clr}, anim_dur, mina.easeout);
+        }
+
+        /*        
+        function mouseClick () {
+            var d = +new Date();
+            if ((d - lastClickTime) <= mouseClickDelay)
+                this.grid.toggleFlag(this.pos);
+            else
+                this.grid.openCell(this.pos);
+            lastClickTime = d;
+        }
+        */
+
+        function drawCell (i, j) {
+            var hsr3 = Math.sqrt(3)/2;
+            var s = l - m;
+            var x = x0 + i*l/2,
+                y = y0 + j*l*hsr3;
+            var triangle;
+            
+            if ((i+j)%2)
+                // down-triangle
+                triangle = field.polygon(x - s/2 + m*hsr3, y + m/2, x, y + s*hsr3 - m*hsr3, x + s/2 - m*hsr3, y + m/2).attr({ fill: base_clr });
+            else
+                // up-triangle
+                triangle = field.polygon(x, y + m, x - l/2 + m*hsr3, y + l*hsr3 - m/2, x + l/2 - m*hsr3, y + l*hsr3 - m/2).attr({ fill: base_clr });
+            
+            triangle.pos = [i,j];
+            triangle.count = 0;
+            triangle.mouseover(mouseOver);
+            triangle.mouseout(mouseOut);
+
+            return triangle
+        }
+
+        function textOnCell (pos,txt) {
+            var x = x0 + pos[0]*l/2,
+                y = y0 + pos[1]*l*Math.sqrt(3)/2 + (((pos[0] + pos[1]) % 2) ? 1 : 2) * l*Math.sqrt(3) / 6;
+            
+            var opts = {'text-anchor':'middle', 'alignment-baseline': 'central'};
+            
+            opts['font-size'] = fontSize;
+            opts['font-family'] = font;
+            opts['fill'] = fontColor;
+            field.text(x,y,txt).attr(opts);
+        }
+
+        function drawGrid (N) {
+
+            this.STARTED = false;
+            this.FINISHED = false;
+            this.cell = {};
+
+            /*this.clicka = function prova (pos) {
+                return function () {
+                    if (this.grid.FINISHED)
+                        return
+
+                    var grid = this.grid;
+                    var cell = grid.cell[pos];
+                    if (!grid.STARTED) {
+                        grid.placeBombs(pos);
+                        grid.STARTED = true;
+                    }
+                    //CODE FOR NORMAL CLICKS STARTS HERE
+                    if (cell.state == "virgin") {
+                        if (cell.isBomb) {
+                            this.animate({fill: bomb_clr}, anim_dur, mina.easein);
+                            grid.FINISHED = true;
+                            cell.state = "clicked";
+                            return
+                        }
+                        this.animate({fill: clicked_clr}, anim_dur, mina.easein);
+                        if (cell.count > 0)
+                            textOnCell(cell.pos, cell.count.toString());
+                        else
+                            for (c of cell.nbHood)
+                                //grid.clicka(c).call();
+                                // !!!!
+                                "io"
+                    }
+                    cell.state = "clicked";
+                }
+            }*/
+
+
+            this.mouseClick = function (pos) {
+                return function () {
+                    if (doubleClick.waitingSndClick) {
+                        // double click
+                        this.grid.toggleFlag(pos);
+                        clearTimeout(doubleClick.lastClick);
+                        doubleClick.waitingSndClick = false;
+                        return
+                    }
+                    doubleClick.waitingSndClick = true;
+                    var f = function () {
+                        // single click
+                        doubleClick.waitingSndClick = false;
+                        this.grid.openCell(pos);
+                    };
+                    doubleClick.lastClick = setTimeout(f, doubleClick.mouseClickDelay);
+
+
+
+                }
+            }
+
+            this.openCell = function (pos) {
+                if (this.FINISHED)
+                        return
+                var cell = this.cell[pos];
+                if (!this.STARTED) {
+                    //this.initialize(pos);
+                    this.placeBombs(pos);
+                    this.STARTED = true;
+                }
+                if (cell.state == "virgin") {
+                    cell.state = "clicked";
+                    if (cell.isBomb) {
+                        cell.animate({fill: bomb_clr}, anim_dur, mina.easein);
+                        this.FINISHED = true;
+                        cell.state = "clicked";
+                        return
+                    }
+                    cell.animate({fill: clicked_clr}, anim_dur, mina.easein);
+                    if (cell.count > 0)         // eliminare > 0 quando sicuri che funzioni
+                        textOnCell(cell.pos, cell.count.toString());
+                    else
+                        for (c of cell.nbHood)
+                            this.openCell(c);
+                    
+                } /*else {
+                    if (cell.state == "clicked") {
+                        var placedBombs = 0;
+                        var cellsToOpen = [];
+                        console.log(cell.pos);
+                        for (c in cell.nbHood) {
+                            console.log(c);
+                            if (this.cell[c].state == "flag")
+                                placedBombs++;
+                        }
+                        if (placedBombs == cell.count)
+                            for (c in cell.nbHood)
+                                if (this.cell[c].state == "virgin")
+                                    this.openCell(c);
+                    }
+                }*/
+            }
+
+            /*
+            this.toggleFlag = function (pos) {
+                return function () {
+                    if (this.grid.FINISHED)
+                        return
+
+                    var cell = this.grid.cell[pos];
+                    switch (cell.state) {
+                        case "virgin":
+                            cell.state = "flag";
+                            cell.animate({fill: flag_clr}, anim_dur, mina.easein);
+                            break;
+                        case "flag":
+                            cell.state = "virgin";
+                            cell.animate({fill: base_clr}, anim_dur, mina.easeout);
+                    }
+                }
+            }
+            */
+
+            this.toggleFlag = function (pos) {
+                    if (this.FINISHED)
+                        return
+
+                    var cell = this.cell[pos];
+                    switch (cell.state) {
+                        case "virgin":
+                            cell.state = "flag";
+                            cell.animate({fill: flag_clr}, anim_dur, mina.easein);
+                            break;
+                        case "flag":
+                            cell.state = "virgin";
+                            cell.animate({fill: base_clr}, anim_dur, mina.easeout);
+                    }
+            }
+            
+            this.addCell = function (i,j) {
+                var c = drawCell(i,j);
+                c.isBomb = false;
+                c.state = "virgin"                  // virgin, flag, clicked
+
+                c.click(this.mouseClick([i,j]));
+                //c.dblclick(this.toggleFlag([i,j]));
+                c.grid = this;
+                this.cell[[i,j]] = c;
+            }
+
+            this.nbHoodOf = function (pos) {
+                var nbh = [];
+                var i = pos[0], j = pos[1];
+                for (k of [-2, -1, 1, 2])
+                    nbh.push([i+k, j]);
+                for (k of [-1, -0, 1]) 
+                    nbh = nbh.concat([[i+k, j-1], [i+k, j+1]]);
+
+                var row
+                if ((i+j) % 2) row = -1; else row = 1;
+                nbh = nbh.concat([[i-2, j + row], [i+2, j + row]]);
+                
+                return nbh
+            }
+
+            
+            this.placeBombs = function (firstClick) {
+                // exclude the cells next to the first click, so you can start safely
+                //var toExclude = this.nbHoodOf(firstClick);
+                var toExclude = this.cell[firstClick].nbHood.map(function (x) { return x.toString() });
+                var candidates = Object.keys(this.cell).filter(function(x) { return toExclude.indexOf(x) == -1 });
+                for (var b = 0; b < BOMBS; b++) {
+                    var choiceInd = Math.floor(Math.random()*candidates.length);
+                    var bomb = this.cell[candidates[choiceInd]]
+                    bomb.isBomb = true;
+                    for (nextToBomb of bomb.nbHood)
+                        this.cell[nextToBomb].count++;
+                    candidates.splice(choiceInd,1);
+                }
+            }
+
+            function coords(c) {
+                return c.split(",").map(parseFloat);
+            }
+
+            this.initialize = function () {
+                // adding the cells to the grid
+                for (var j = 0; j < N; j++)
+                    for (var i = -j; i < 2*N+j+1; i++)
+                        this.addCell(i,j);
+                for (var j = N; j < 2*N; j++)
+                    for (var i = j+1-2*N; i < 4*N-j; i++)
+                        this.addCell(i,j);
+
+                // calculating the neighborhood for each cells and saving it
+                var cellCoords = Object.keys(this.cell);
+                for (c of cellCoords)
+                    this.cell[c].nbHood = this.nbHoodOf(coords(c)).filter( function (nbh) { return cellCoords.indexOf(nbh.toString()) != -1 } );
+            }
+            
+            
+
+
+        }
+
+        // test code
+        var grid = new drawGrid(5);
+        grid.initialize();   // forse è totalmente inutile metterlo qui
+
+    </script>
+
+    </body>
+
+</html>
+    
