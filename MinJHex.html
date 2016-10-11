@@ -13,38 +13,62 @@
                 height: 100%;
                 margin: 0;
             }
+            svg {
+                -webkit-user-select:none;
+                -khtml-user-select:none;
+                -moz-user-select:none;
+                -ms-user-select:none;
+                -o-user-select:none;
+                user-select:none;
+            }
         </style>
     </head>
     <body>
-    <!--<p id="test"><p\>!-->
+    
     <svg id="field"></svg>
 
     <script>
-        //////////////////////////////////////////////////////
-                            //NOTES
-        /*  // page size
-        var w = window,
-        d = document,
-        e = d.documentElement,
-        g = d.getElementsByTagName('body')[0],
-        x = w.innerWidth || e.clientWidth || g.clientWidth,
-        y = w.innerHeight|| e.clientHeight|| g.clientHeight;
-        alert(x + ' × ' + y);
-        */
-        //////////////////////////////////////////////////////
-        var x0 = 200, y0 = 100;
+        // Get arguments
         
-        var l = 55, m = 3;
-            
+        argv = {}
+        window.location.search.substring(1).split('&').forEach(function (c) { var kv = c.split('='); argv[kv[0]] = kv[1] } );
+
+
+        // General settings  //////////////////////
+        //--!!this could be made better
+        var dimension = 12.3,
+            N = parseInt(argv["n"]) || 5,
+            BOMBS = parseInt(argv["b"]) || 30;
+
         var base_clr = "#8999d6",
             over_clr = "#93a5ef",
             clicked_clr = "#6375bf",
-            //clicked_clr = "#040404",
             bomb_clr = "#d6647b",
             flag_clr = "#efc415",
             anim_dur = 130;
 
-        //var mouseClickDelay = 1300;
+        var textDimension = 33;
+            fontColor = '#ffffff',
+            font = 'DejaVu Sans';
+
+        ///////////////////////////////////////////
+
+        // Page size
+        var w = window,
+        d = document,
+        e = d.documentElement,
+        g = d.getElementsByTagName('body')[0],
+        centerX = (w.innerWidth || e.clientWidth || g.clientWidth)/2,
+        centerY = (w.innerHeight|| e.clientHeight|| g.clientHeight)/2;
+        
+
+        
+
+        var l = parseInt(centerY*2/dimension),
+            m = parseInt(l/18.3);
+
+        var x0 = centerX - l*N/2,
+            y0 = centerY - l*N*Math.sqrt(3)/2;
 
         var doubleClick = {};
         doubleClick.mouseClickDelay = 190;
@@ -52,11 +76,10 @@
         doubleClick.waitingSndClick = false;
         doubleClick.lastClick = null;
 
-        var fontSize = '20px',
-            fontColor = '#ffffff',
-            font = 'DejaVu Sans';
+        var fontSize = l*textDimension/100;
 
-        var BOMBS = 30;
+
+
         /////////////////////////////////////////////////////////
 
         var field = Snap('#field');
@@ -71,17 +94,6 @@
             if (this.state == "virgin")
                 this.animate({fill: base_clr}, anim_dur, mina.easeout);
         }
-
-        /*        
-        function mouseClick () {
-            var d = +new Date();
-            if ((d - lastClickTime) <= mouseClickDelay)
-                this.grid.toggleFlag(this.pos);
-            else
-                this.grid.openCell(this.pos);
-            lastClickTime = d;
-        }
-        */
 
         function drawCell (i, j) {
             var hsr3 = Math.sqrt(3)/2;
@@ -107,54 +119,22 @@
 
         function textOnCell (pos,txt) {
             var x = x0 + pos[0]*l/2,
-                y = y0 + pos[1]*l*Math.sqrt(3)/2 + (((pos[0] + pos[1]) % 2) ? 1 : 2) * l*Math.sqrt(3) / 6;
+                y = y0 + pos[1]*l*Math.sqrt(3)/2 + (((pos[0] + pos[1]) % 2) ? 1 : 2) * l * Math.sqrt(3) / 6;
             
             var opts = {'text-anchor':'middle', 'alignment-baseline': 'central'};
             
-            opts['font-size'] = fontSize;
+            opts['font-size'] = fontSize + 'px';
             opts['font-family'] = font;
             opts['fill'] = fontColor;
-            field.text(x,y,txt).attr(opts);
+            return field.text(x,y,txt).attr(opts);
         }
 
-        function drawGrid (N) {
+        function Grid (N) {
 
             this.STARTED = false;
             this.FINISHED = false;
             this.cell = {};
-
-            /*this.clicka = function prova (pos) {
-                return function () {
-                    if (this.grid.FINISHED)
-                        return
-
-                    var grid = this.grid;
-                    var cell = grid.cell[pos];
-                    if (!grid.STARTED) {
-                        grid.placeBombs(pos);
-                        grid.STARTED = true;
-                    }
-                    //CODE FOR NORMAL CLICKS STARTS HERE
-                    if (cell.state == "virgin") {
-                        if (cell.isBomb) {
-                            this.animate({fill: bomb_clr}, anim_dur, mina.easein);
-                            grid.FINISHED = true;
-                            cell.state = "clicked";
-                            return
-                        }
-                        this.animate({fill: clicked_clr}, anim_dur, mina.easein);
-                        if (cell.count > 0)
-                            textOnCell(cell.pos, cell.count.toString());
-                        else
-                            for (c of cell.nbHood)
-                                //grid.clicka(c).call();
-                                // !!!!
-                                "io"
-                    }
-                    cell.state = "clicked";
-                }
-            }*/
-
+            this.clickedCells = 0;
 
             this.mouseClick = function (pos) {
                 return function () {
@@ -172,15 +152,13 @@
                         this.grid.openCell(pos);
                     };
                     doubleClick.lastClick = setTimeout(f, doubleClick.mouseClickDelay);
-
-
-
                 }
             }
 
             this.openCell = function (pos) {
                 if (this.FINISHED)
                         return
+
                 var cell = this.cell[pos];
                 if (!this.STARTED) {
                     //this.initialize(pos);
@@ -189,56 +167,39 @@
                 }
                 if (cell.state == "virgin") {
                     cell.state = "clicked";
+                    this.clickedCells++;
                     if (cell.isBomb) {
                         cell.animate({fill: bomb_clr}, anim_dur, mina.easein);
                         this.FINISHED = true;
                         cell.state = "clicked";
+                        setTimeout(function () {alert("Pieces of your fleshy brain are all over the walls. Pay more attention to mines next time")},1000);
                         return
                     }
                     cell.animate({fill: clicked_clr}, anim_dur, mina.easein);
-                    if (cell.count > 0)         // eliminare > 0 quando sicuri che funzioni
-                        textOnCell(cell.pos, cell.count.toString());
+                    if (cell.count)
+                        textOnCell(cell.pos, cell.count.toString()).click(this.mouseClick(pos));
                     else
                         for (c of cell.nbHood)
                             this.openCell(c);
                     
-                } /*else {
+                } else      // convert to switch?
                     if (cell.state == "clicked") {
                         var placedBombs = 0;
-                        var cellsToOpen = [];
-                        console.log(cell.pos);
-                        for (c in cell.nbHood) {
-                            console.log(c);
+                        for (c of cell.nbHood)
                             if (this.cell[c].state == "flag")
                                 placedBombs++;
-                        }
                         if (placedBombs == cell.count)
-                            for (c in cell.nbHood)
+                            for (c of cell.nbHood)
                                 if (this.cell[c].state == "virgin")
                                     this.openCell(c);
                     }
-                }*/
+                this.checkVictory();
             }
 
-            /*
-            this.toggleFlag = function (pos) {
-                return function () {
-                    if (this.grid.FINISHED)
-                        return
-
-                    var cell = this.grid.cell[pos];
-                    switch (cell.state) {
-                        case "virgin":
-                            cell.state = "flag";
-                            cell.animate({fill: flag_clr}, anim_dur, mina.easein);
-                            break;
-                        case "flag":
-                            cell.state = "virgin";
-                            cell.animate({fill: base_clr}, anim_dur, mina.easeout);
-                    }
-                }
+            this.checkVictory = function () {
+                if (this.clickedCells == 6*N*N)
+                    setTimeout(function () {alert("You are a real mine surviver! Good Job")},1000);                
             }
-            */
 
             this.toggleFlag = function (pos) {
                     if (this.FINISHED)
@@ -249,21 +210,23 @@
                         case "virgin":
                             cell.state = "flag";
                             cell.animate({fill: flag_clr}, anim_dur, mina.easein);
+                            this.clickedCells++;
                             break;
                         case "flag":
                             cell.state = "virgin";
                             cell.animate({fill: base_clr}, anim_dur, mina.easeout);
+                            this.clickedCells--;
                     }
+                    this.checkVictory();
             }
             
             this.addCell = function (i,j) {
                 var c = drawCell(i,j);
                 c.isBomb = false;
                 c.state = "virgin"                  // virgin, flag, clicked
-
                 c.click(this.mouseClick([i,j]));
-                //c.dblclick(this.toggleFlag([i,j]));
                 c.grid = this;
+                c.nbHood = [];
                 this.cell[[i,j]] = c;
             }
 
@@ -278,15 +241,15 @@
                 var row
                 if ((i+j) % 2) row = -1; else row = 1;
                 nbh = nbh.concat([[i-2, j + row], [i+2, j + row]]);
-                
+
                 return nbh
             }
 
             
             this.placeBombs = function (firstClick) {
                 // exclude the cells next to the first click, so you can start safely
-                //var toExclude = this.nbHoodOf(firstClick);
                 var toExclude = this.cell[firstClick].nbHood.map(function (x) { return x.toString() });
+                toExclude.push(firstClick.toString());
                 var candidates = Object.keys(this.cell).filter(function(x) { return toExclude.indexOf(x) == -1 });
                 for (var b = 0; b < BOMBS; b++) {
                     var choiceInd = Math.floor(Math.random()*candidates.length);
@@ -302,7 +265,7 @@
                 return c.split(",").map(parseFloat);
             }
 
-            this.initialize = function () {
+            /*this.initialize = function () {
                 // adding the cells to the grid
                 for (var j = 0; j < N; j++)
                     for (var i = -j; i < 2*N+j+1; i++)
@@ -315,16 +278,30 @@
                 var cellCoords = Object.keys(this.cell);
                 for (c of cellCoords)
                     this.cell[c].nbHood = this.nbHoodOf(coords(c)).filter( function (nbh) { return cellCoords.indexOf(nbh.toString()) != -1 } );
-            }
+            }*/
+                // adding the cells to the grid
+                for (var j = 0; j < N; j++)
+                    for (var i = -j; i < 2*N+j+1; i++)
+                        this.addCell(i,j);
+                for (var j = N; j < 2*N; j++)
+                    for (var i = j+1-2*N; i < 4*N-j; i++)
+                        this.addCell(i,j);
+
+                // calculating the neighborhood for each cells and saving it
+                var cellCoords = Object.keys(this.cell);
+                for (c of cellCoords)
+                    this.cell[c].nbHood = this.nbHoodOf(coords(c)).filter( function (nbh) { return cellCoords.indexOf(nbh.toString()) != -1 } );
+            
             
             
 
 
         }
+        
 
         // test code
-        var grid = new drawGrid(5);
-        grid.initialize();   // forse è totalmente inutile metterlo qui
+        var grid = new Grid(N);
+        //grid.initialize();   // forse è totalmente inutile metterlo qui
 
     </script>
 
